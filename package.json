@@ -1,0 +1,61 @@
+{
+  "$schema": "https://www.raycast.com/schemas/extension.json",
+  "name": "app-tags",
+  "title": "App Tags",
+  "description": "为应用添加自定义别名/标签，通过标签快速搜索并启动应用",
+  "icon": "icon.png",
+  "author": "xj",
+  "categories": [
+    "Productivity"
+  ],
+  "license": "MIT",
+  "commands": [
+    {
+      "name": "search-apps",
+      "title": "Search Applications",
+      "subtitle": "App Tags",
+      "description": "按应用名或自定义标签搜索并启动应用",
+      "mode": "view",
+      "arguments": [
+        {
+          "name": "query",
+          "placeholder": "标签或应用名",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "name": "tag-app",
+      "title": "Tag Application",
+      "subtitle": "App Tags",
+      "description": "选中应用直接打标签（搜索或新建），建议配合快捷键使用",
+      "mode": "view"
+    },
+    {
+      "name": "manage-tags",
+      "title": "Manage App Tags",
+      "subtitle": "App Tags",
+      "description": "集中查看并编辑所有应用的标签",
+      "mode": "view"
+    }
+  ],
+  "dependencies": {
+    "@raycast/api": "^1.85.0",
+    "@raycast/utils": "^2.2.0"
+  },
+  "devDependencies": {
+    "@raycast/eslint-config": "^2.0.4",
+    "@types/node": "^22.10.0",
+    "@types/react": "^18.3.0",
+    "eslint": "^9.0.0",
+    "prettier": "^3.4.0",
+    "typescript": "^5.6.0"
+  },
+  "scripts": {
+    "build": "ray build",
+    "dev": "ray develop",
+    "lint": "ray lint",
+    "fix-lint": "ray lint --fix",
+    "publish": "npx @raycast/api@latest publish"
+  }
+}
