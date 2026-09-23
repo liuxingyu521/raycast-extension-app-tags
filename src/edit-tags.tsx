@@ -144,14 +144,17 @@ export function AddTagForm({
   const id = appId(app);
   const [searchText, setSearchText] = useState("");
 
-  // 所有已存在的标签（排除当前应用已有的，避免重复添加）
-  const { data: candidateTags, isLoading } = usePromise(async () => {
+  // mine：当前应用已有的标签；candidates：全局已有标签（排除当前应用已有的，避免重复添加）
+  const { data, isLoading, revalidate } = usePromise(async () => {
     const [map, mine] = await Promise.all([readTagMap(), getTagsFor(id)]);
     const mineLower = new Set(mine.map((t) => t.toLowerCase()));
-    return [...new Set(Object.values(map).flat())]
+    const candidates = [...new Set(Object.values(map).flat())]
       .filter((t) => !mineLower.has(t.toLowerCase()))
       .sort((a, b) => a.localeCompare(b));
+    return { mine, candidates };
   });
+  const myTags = data?.mine ?? [];
+  const candidateTags = data?.candidates;
 
   const query = normalizeTag(searchText);
   const queryLower = query.toLowerCase();
@@ -179,6 +182,16 @@ export function AddTagForm({
     });
     onDone?.();
     pop();
+  }
+
+  async function handleRemove(tag: string) {
+    await removeTag(id, tag);
+    await showToast({
+      style: Toast.Style.Success,
+      title: `已删除标签 “${tag}”`,
+    });
+    revalidate(); // 本页刷新：标签从「当前应用」移除并回到候选列表
+    onDone?.(); // 同步刷新上一级列表的徽章
   }
 
   return (
@@ -218,6 +231,28 @@ export function AddTagForm({
                     title={`添加标签 “${t}”`}
                     icon={Icon.Plus}
                     onAction={() => pick(t)}
+                  />
+                </ActionPanel>
+              }
+            />
+          ))}
+        </List.Section>
+      )}
+      {myTags.length > 0 && query.length === 0 && (
+        <List.Section title="当前应用的标签">
+          {myTags.map((t) => (
+            <List.Item
+              key={t}
+              icon={{ source: Icon.Tag, tintColor: colorForTag(t) }}
+              title={t}
+              actions={
+                <ActionPanel>
+                  <Action
+                    title="删除标签"
+                    icon={Icon.Trash}
+                    style={Action.Style.Destructive}
+                    shortcut={{ modifiers: ["ctrl"], key: "x" }}
+                    onAction={() => handleRemove(t)}
                   />
                 </ActionPanel>
               }
