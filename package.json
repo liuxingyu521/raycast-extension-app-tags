@@ -25,13 +25,6 @@
       ]
     },
     {
-      "name": "tag-app",
-      "title": "Tag Application",
-      "subtitle": "App Tags",
-      "description": "选中应用直接打标签（搜索或新建），建议配合快捷键使用",
-      "mode": "view"
-    },
-    {
       "name": "manage-tags",
       "title": "Manage App Tags",
       "subtitle": "App Tags",

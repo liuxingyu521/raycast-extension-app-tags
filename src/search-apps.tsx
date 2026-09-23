@@ -142,16 +142,16 @@ function AppItem({
             }}
           />
           <Action.Push
-            title="管理标签"
+            title="添加标签"
             icon={Icon.Tag}
             shortcut={{ modifiers: ["cmd"], key: "t" }}
-            target={<EditTags app={app} onChange={revalidate} />}
+            target={<AddTagForm app={app} onDone={revalidate} />}
           />
           <Action.Push
-            title="快速添加标签"
-            icon={Icon.Plus}
+            title="管理所有标签"
+            icon={Icon.Pencil}
             shortcut={{ modifiers: ["cmd", "shift"], key: "t" }}
-            target={<AddTagForm app={app} onDone={revalidate} />}
+            target={<EditTags app={app} onChange={revalidate} />}
           />
           <ActionPanel.Section>
             <Action.ShowInFinder
