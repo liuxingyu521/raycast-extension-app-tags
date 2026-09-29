@@ -20,12 +20,18 @@ import { usePromise } from "@raycast/utils";
 import {
   addTag,
   appId,
+  importTagMap,
   readTagMap,
   removeTag,
   removeTagEverywhere,
   renameTagEverywhere,
   TagMap,
 } from "./lib/tags";
+import {
+  exportTagMapToFile,
+  parseTagMapFile,
+  pickAndReadJsonFile,
+} from "./lib/transfer";
 import { colorForTag } from "./lib/colors";
 import { EditTags } from "./edit-tags";
 
@@ -81,6 +87,26 @@ export default function Command() {
   const groups = data?.groups ?? [];
   const orphans = data?.orphans ?? [];
 
+  async function handleExport() {
+    const map = await readTagMap();
+    if (Object.keys(map).length === 0) {
+      await showToast({
+        style: Toast.Style.Failure,
+        title: "还没有任何标签可导出",
+      });
+      return;
+    }
+    const ok = await exportTagMapToFile(map);
+    if (ok) {
+      const tagCount = new Set(Object.values(map).flat()).size;
+      await showToast({
+        style: Toast.Style.Success,
+        title: "导出完成",
+        message: `${Object.keys(map).length} 个应用、${tagCount} 个标签`,
+      });
+    }
+  }
+
   async function handleDeleteEverywhere(group: TagGroup) {
     if (
       await confirmAlert({
@@ -135,6 +161,10 @@ export default function Command() {
                   shortcut={{ modifiers: ["cmd", "shift"], key: "delete" }}
                   onAction={() => handleDeleteEverywhere(group)}
                 />
+                <TransferActions
+                  onExport={handleExport}
+                  onImported={revalidate}
+                />
               </ActionPanel>
             }
           />
@@ -176,7 +206,15 @@ export default function Command() {
         <List.EmptyView
           icon={Icon.Tag}
           title="还没有任何标签"
-          description="打开 “Search Applications” 命令，在任意应用上按 ⌘T 添加标签"
+          description="打开 “Search Applications” 命令，在任意应用上按 ⌘T 添加标签；或按 ⌘I 从文件导入"
+          actions={
+            <ActionPanel>
+              <TransferActions
+                onExport={handleExport}
+                onImported={revalidate}
+              />
+            </ActionPanel>
+          }
         />
       )}
     </List>
@@ -389,6 +427,102 @@ function RenameTagForm({ tag, onDone }: { tag: string; onDone?: () => void }) {
         onChange={() => setNameError(undefined)}
       />
       <Form.Description text="会在所有应用上同步重命名该标签；如果新名称已存在，会自动合并。" />
+    </Form>
+  );
+}
+
+/** 导入 / 导出动作组，挂在列表项和空视图的动作面板上 */
+function TransferActions({
+  onExport,
+  onImported,
+}: {
+  onExport: () => void;
+  onImported: () => void;
+}) {
+  return (
+    <ActionPanel.Section title="导入 / 导出">
+      <Action
+        title="导出标签到文件…"
+        icon={Icon.Upload}
+        shortcut={{ modifiers: ["cmd", "shift"], key: "e" }}
+        onAction={onExport}
+      />
+      <Action.Push
+        title="从文件导入标签…"
+        icon={Icon.Download}
+        shortcut={{ modifiers: ["cmd"], key: "i" }}
+        target={<ImportTagsForm onDone={onImported} />}
+      />
+    </ActionPanel.Section>
+  );
+}
+
+/** 导入标签：先选合并/覆盖方式，再弹文件选择器，导入前二次确认 */
+function ImportTagsForm({ onDone }: { onDone?: () => void }) {
+  const { pop } = useNavigation();
+
+  return (
+    <Form
+      navigationTitle="导入标签"
+      actions={
+        <ActionPanel>
+          <Action.SubmitForm
+            title="选择文件并导入"
+            icon={Icon.Download}
+            onSubmit={async (values: { mode: string }) => {
+              const picked = await pickAndReadJsonFile();
+              if (!picked) return; // 用户取消，留在表单
+              const map = parseTagMapFile(picked.content);
+              if (!map || Object.keys(map).length === 0) {
+                await showToast({
+                  style: Toast.Style.Failure,
+                  title: "文件格式不正确",
+                  message: "需要 App Tags 导出的 JSON 文件",
+                });
+                return;
+              }
+              const appCount = Object.keys(map).length;
+              const tagCount = new Set(Object.values(map).flat()).size;
+              const replace = values.mode === "replace";
+              if (
+                await confirmAlert({
+                  title: `${replace ? "覆盖" : "合并"}导入 ${appCount} 个应用的标签？`,
+                  message: `共 ${tagCount} 个不同标签。${replace ? "现有标签将被全部替换，此操作不可撤销。" : "将与现有标签合并，不会删除已有标签。"}`,
+                  primaryAction: {
+                    title: replace ? "覆盖导入" : "合并导入",
+                    style: replace
+                      ? Alert.ActionStyle.Destructive
+                      : Alert.ActionStyle.Default,
+                  },
+                })
+              ) {
+                await importTagMap(map, values.mode as "merge" | "replace");
+                await showToast({
+                  style: Toast.Style.Success,
+                  title: "导入完成",
+                  message: `${appCount} 个应用、${tagCount} 个标签`,
+                });
+                onDone?.();
+                pop();
+              }
+            }}
+          />
+        </ActionPanel>
+      }
+    >
+      <Form.Dropdown id="mode" title="导入方式" defaultValue="merge">
+        <Form.Dropdown.Item
+          value="merge"
+          title="合并：保留现有标签，累加导入"
+          icon={Icon.Plus}
+        />
+        <Form.Dropdown.Item
+          value="replace"
+          title="覆盖：清空现有标签后导入"
+          icon={Icon.ExclamationMark}
+        />
+      </Form.Dropdown>
+      <Form.Description text="选择由 App Tags 导出的 JSON 文件；应用按 bundleId 匹配，未安装的应用标签也会保留。" />
     </Form>
   );
 }

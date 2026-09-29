@@ -84,6 +84,31 @@ export async function removeTagEverywhere(tag: string): Promise<void> {
   await writeTagMap(map);
 }
 
+/** 导入标签：merge 与现有标签合并（忽略大小写去重），replace 整体覆盖 */
+export async function importTagMap(
+  incoming: TagMap,
+  mode: "merge" | "replace",
+): Promise<void> {
+  if (mode === "replace") {
+    await writeTagMap(incoming);
+    return;
+  }
+  const map = await readTagMap();
+  for (const [id, tags] of Object.entries(incoming)) {
+    const existing = map[id] ?? [];
+    const seen = new Set(existing.map((t) => t.toLowerCase()));
+    const merged = [...existing];
+    for (const t of tags) {
+      if (!seen.has(t.toLowerCase())) {
+        merged.push(t);
+        seen.add(t.toLowerCase());
+      }
+    }
+    map[id] = merged.sort((a, b) => a.localeCompare(b));
+  }
+  await writeTagMap(map);
+}
+
 /** 全局重命名标签（合并同名标签，忽略大小写冲突） */
 export async function renameTagEverywhere(
   oldTag: string,
