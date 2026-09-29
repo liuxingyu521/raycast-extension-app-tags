@@ -15,8 +15,6 @@ declare type Preferences = ExtensionPreferences
 declare namespace Preferences {
   /** Preferences accessible in the `search-apps` command */
   export type SearchApps = ExtensionPreferences & {}
-  /** Preferences accessible in the `tag-app` command */
-  export type TagApp = ExtensionPreferences & {}
   /** Preferences accessible in the `manage-tags` command */
   export type ManageTags = ExtensionPreferences & {}
 }
@@ -27,8 +25,6 @@ declare namespace Arguments {
   /** 标签或应用名 */
   "query": string
 }
-  /** Arguments passed to the `tag-app` command */
-  export type TagApp = {}
   /** Arguments passed to the `manage-tags` command */
   export type ManageTags = {}
 }
