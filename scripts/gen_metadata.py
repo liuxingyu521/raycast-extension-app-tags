@@ -7,7 +7,7 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 ROOT = "/Users/xj/Github/raycast-extension-app-tags/reat"
-ICON = f"{ROOT}/assets/icon.png"
+ICON = f"{ROOT}/assets/icon-transparent.png"  # 透明底图标，用于悬浮展示
 OUT = f"{ROOT}/metadata/app-tags-1.png"
 W, H = 2000, 1250
 
