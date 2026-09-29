@@ -1,13 +1,19 @@
-"""生成 Raycast Store metadata 封面图（2000x1250），风格与扩展图标一致。"""
-from PIL import Image, ImageDraw, ImageFont
+"""生成 Raycast Store metadata 封面图（2000x1250），风格与最新扩展图标一致。
 
+深色底 + 青绿渐变光晕，直接使用 assets/icon.png 作为主体，
+标签 chips 配色取自 src/lib/colors.ts 的 PALETTE。
+"""
+import numpy as np
+from PIL import Image, ImageDraw, ImageFilter, ImageFont
+
+ROOT = "/Users/xj/Github/raycast-extension-app-tags/reat"
+ICON = f"{ROOT}/assets/icon.png"
+OUT = f"{ROOT}/metadata/app-tags-1.png"
 W, H = 2000, 1250
-TOP = (108, 92, 231)   # #6C5CE7
-BOT = (41, 128, 235)   # #2980EB
-OUT = "/Users/xj/Github/raycast-extension-app-tags/reat/metadata/app-tags-1.png"
 
-HELVETICA = "/System/Library/Fonts/Helvetica.ttc"          # index 1 = Bold
+HELVETICA = "/System/Library/Fonts/Helvetica.ttc"           # index 1 = Bold
 HIRAGINO_GB = "/System/Library/Fonts/Hiragino Sans GB.ttc"  # 简中，index 0 = W3, 1 = W6
+
 
 def font(path, size, index=0):
     try:
@@ -15,70 +21,84 @@ def font(path, size, index=0):
     except Exception:
         return ImageFont.load_default()
 
-f_title = font(HELVETICA, 190, index=1)   # Helvetica Bold
-f_sub = font(HIRAGINO_GB, 64, index=1)    # 冬青黑体简 W6
-f_chip = font(HIRAGINO_GB, 52, index=1)
 
-# ---------- 背景：对角线渐变 ----------
-img = Image.new("RGBA", (W, H))
-gd = ImageDraw.Draw(img)
-for y in range(H):
-    for x in range(0, W, 4):
-        t = (x / W + y / H) / 2
-        r = int(TOP[0] + (BOT[0] - TOP[0]) * t)
-        g = int(TOP[1] + (BOT[1] - TOP[1]) * t)
-        b = int(TOP[2] + (BOT[2] - TOP[2]) * t)
-        gd.rectangle([x, y, x + 3, y], fill=(r, g, b, 255))
+f_title = font(HELVETICA, 176, index=1)
+f_sub = font(HIRAGINO_GB, 62, index=1)
+f_chip = font(HIRAGINO_GB, 50, index=1)
 
-# ---------- 左侧：大号标签图形 ----------
-def draw_tag(base, cx, cy, w, h, rot=30):
-    layer = Image.new("RGBA", base.size, (0, 0, 0, 0))
-    ld = ImageDraw.Draw(layer)
-    pts = [
-        (cx - w // 2, cy - h // 2),
-        (cx + w // 2 - int(w * 0.2), cy - h // 2),
-        (cx + w // 2, cy),
-        (cx + w // 2 - int(w * 0.2), cy + h // 2),
-        (cx - w // 2, cy + h // 2),
-    ]
-    ld.polygon(pts, fill=(255, 255, 255, 255))
-    hole = Image.new("L", base.size, 0)
-    hd = ImageDraw.Draw(hole)
-    hr = int(h * 0.13)
-    hx = cx - w // 2 + int(w * 0.18)
-    hd.ellipse([hx - hr, cy - hr, hx + hr, cy + hr], fill=255)
-    layer = Image.composite(Image.new("RGBA", base.size, (0, 0, 0, 0)), layer, hole)
-    return layer.rotate(rot, resample=Image.BICUBIC, center=(cx, cy))
+# ---------- 背景：深色渐变 + 青绿光晕 ----------
+yy, xx = np.mgrid[0:H, 0:W].astype(np.float32)
 
-img = Image.alpha_composite(img, draw_tag(img, 560, 560, 620, 400))
-d = ImageDraw.Draw(img)  # 合成后需重建 Draw 对象
+# 对角深色渐变 (#12151a -> #1b2027)
+t = (xx / W * 0.4 + yy / H * 0.6)
+c0 = np.array([18, 21, 26], dtype=np.float32)
+c1 = np.array([29, 34, 41], dtype=np.float32)
+bg = c0[None, None, :] * (1 - t[..., None]) + c1[None, None, :] * t[..., None]
+
+
+def add_glow(arr, cx, cy, radius, color, strength):
+    """叠加一层柔和径向光晕"""
+    d = np.sqrt((xx - cx) ** 2 + (yy - cy) ** 2) / radius
+    fall = np.clip(1 - d, 0, 1) ** 2 * strength
+    col = np.array(color, dtype=np.float32)
+    return arr + (col[None, None, :] - arr) * fall[..., None]
+
+
+bg = add_glow(bg, W * 0.26, H * 0.50, 720, (45, 212, 168), 0.22)   # 图标后青绿主光晕
+bg = add_glow(bg, W * 0.30, H * 0.24, 520, (96, 224, 130), 0.10)   # 上方偏绿
+bg = add_glow(bg, W * 0.85, H * 0.90, 640, (10, 132, 255), 0.07)   # 右下淡淡蓝光呼应配色
+
+# 四角轻微压暗（vignette）
+dv = np.sqrt(((xx - W / 2) / (W / 2)) ** 2 + ((yy - H / 2) / (H / 2)) ** 2)
+bg *= (1 - np.clip(dv - 0.55, 0, 1) * 0.35)[..., None]
+
+img = Image.fromarray(np.clip(bg, 0, 255).astype(np.uint8), "RGB").convert("RGBA")
+
+# ---------- 左侧：图标 + 投影 ----------
+icon = Image.open(ICON).convert("RGBA").resize((600, 600), Image.LANCZOS)
+ix, iy = 130, 300  # 左上角位置
+
+shadow = Image.new("RGBA", img.size, (0, 0, 0, 0))
+silhouette = icon.getchannel("A").point(lambda a: a * 0.55)
+shadow_layer = Image.new("RGBA", img.size, (0, 0, 0, 0))
+shadow_layer.paste((8, 24, 20, 255), (ix + 6, iy + 26), silhouette)
+shadow = shadow_layer.filter(ImageFilter.GaussianBlur(34))
+img = Image.alpha_composite(img, shadow)
+img.paste(icon, (ix, iy), icon)
+
+d = ImageDraw.Draw(img)
 
 # ---------- 右侧：标题与副标题 ----------
-tx = 1060
-d.text((tx, 470), "App Tags", font=f_title, fill=(255, 255, 255))
-d.text((tx, 730), "为应用打上标签", font=f_sub, fill=(255, 255, 255))
-d.text((tx, 820), "用你记得住的方式启动它", font=f_sub, fill=(240, 244, 255))
+tx = 940
+d.text((tx, 400), "App Tags", font=f_title, fill=(245, 247, 250))
+d.text((tx, 660), "为应用打上自定义标签", font=f_sub, fill=(224, 231, 238))
+d.text((tx, 752), "用你记得住的方式找到并启动它", font=f_sub, fill=(158, 170, 182))
 
-# ---------- 底部：示例标签 chips（半透明胶囊在独立图层上做 alpha 混合） ----------
-chips = ["docker", "设计", "办公"]
+# ---------- 底部：示例标签 chips（配色 = 应用内标签配色） ----------
+chips = [("docker", "#0A84FF"), ("设计", "#30D158"), ("办公", "#FF9F0A"), ("效率", "#BF5AF2")]
 overlay = Image.new("RGBA", img.size, (0, 0, 0, 0))
 od = ImageDraw.Draw(overlay)
-cx0, cy0 = tx, 970
+cx0, cy0 = tx, 900
 chip_boxes = []
-for c in chips:
+for c, col in chips:
+    rgb = tuple(int(col[i : i + 2], 16) for i in (1, 3, 5))
     tw = d.textlength(c, font=f_chip)
-    pad_x, pad_y = 36, 20
-    bw = int(tw + pad_x * 2)
-    bh = 52 + pad_y * 2
-    od.rounded_rectangle([cx0, cy0, cx0 + bw, cy0 + bh], radius=bh // 2,
-                         fill=(255, 255, 255, 40), outline=(255, 255, 255, 170), width=3)
-    chip_boxes.append((c, cx0 + pad_x, cy0 + pad_y - 6))
-    cx0 += bw + 32
+    pad_x = 38
+    bw, bh = int(tw + pad_x * 2), 92
+    od.rounded_rectangle(
+        [cx0, cy0, cx0 + bw, cy0 + bh],
+        radius=bh // 2,
+        fill=rgb + (38,),
+        outline=rgb + (220,),
+        width=3,
+    )
+    chip_boxes.append((c, rgb, cx0 + pad_x, cy0 + bh // 2))
+    cx0 += bw + 30
 
 img = Image.alpha_composite(img, overlay)
 d = ImageDraw.Draw(img)
-for c, x, y in chip_boxes:
-    d.text((x, y), c, font=f_chip, fill=(255, 255, 255))
+for c, rgb, x, y in chip_boxes:
+    d.text((x, y), c, font=f_chip, fill=rgb, anchor="lm")
 
 img.convert("RGB").save(OUT)
 print("saved:", OUT)
