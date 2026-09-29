@@ -31,6 +31,21 @@ App Tags 是一个 Raycast 扩展，解决一个常见痛点：Mac 上装的应�
 | **Search Applications** | 主命令。列出全部应用，按名称或标签搜索并启动，支持 `query` 参数与 Fallback 模式 |
 | **Manage App Tags** | 标签管理中心。标签 → 应用的两级视图，全局重命名/删除标签，反向打标 |
 
+## 安装
+
+本扩展未上架 Raycast Store，通过源码本地安装（标签数据保存在本机 Raycast LocalStorage，全程无需联网）。从 [最新 Release](https://github.com/liuxingyu521/raycast-extension-app-tags/releases) 下载 zip 解压，或 clone 仓库：
+
+```bash
+git clone git@github.com:liuxingyu521/raycast-extension-app-tags.git
+cd raycast-extension-app-tags
+npm install
+npm run dev    # Raycast 会自动装入本扩展，看到命令后即可停掉 dev 进程
+```
+
+装入后命令会长期保留在 Raycast 中，可正常设置别名、快捷键与 Fallback Command。建议开发或更新后跑一次 `npm run build`，日常使用的就是优化后的生产构建。
+
+要求 Node.js ≥ 20.8 与最新版 Raycast。
+
 ## 使用方式
 
 ### 搜索并启动应用
@@ -77,8 +92,6 @@ npm run dev      # 开发模式，Raycast 热重载加载扩展
 npm run build    # 生产构建
 npm run lint     # ESLint + Prettier + 扩展清单校验
 ```
-
-要求 Node.js ≥ 20.8 与最新版 Raycast。
 
 ## 项目结构
 
