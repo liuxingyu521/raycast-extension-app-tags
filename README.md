@@ -109,11 +109,12 @@ npm run lint     # ESLint + Prettier + 扩展清单校验
 
 ## 发布说明
 
-发布到 Raycast Store 前，需要将 `package.json` 中的 `author` 字段修改为你的 Raycast 用户名，然后执行：
-
 ```bash
-npm run publish
+npm run publish            # 用 package.json 当前版本号发版
+npm run publish -- patch   # 先 bump 修订号（如 1.0.0 → 1.0.1）再发版，也可用 minor / major
 ```
+
+命令会依次执行 lint 校验与生产构建，然后打 `v*` 标签并推送；GitHub Actions 检测到标签后自动打包 zip 并创建 Release。
 
 ## License
 

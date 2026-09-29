@@ -1,0 +1,26 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 打包版本 zip（仅仓库文件，不含 node_modules）
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          git archive HEAD --prefix="app-tags-${VERSION}/" -o "app-tags-${VERSION}.zip"
+
+      - name: 创建 GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: app-tags-*.zip
+          generate_release_notes: true
