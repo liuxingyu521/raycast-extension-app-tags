@@ -13,6 +13,25 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # 需要完整历史与所有 tag，才能对比上一个版本生成变更日志
+          fetch-depth: 0
+
+      - name: 生成变更日志（自上一个 tag 起的提交）
+        run: |
+          PREV=$(git tag --sort=-creatordate | grep -vx "${GITHUB_REF_NAME}" | head -1 || true)
+          if [ -n "$PREV" ]; then RANGE="${PREV}..HEAD"; else RANGE="HEAD"; fi
+          {
+            echo "## 变更内容"
+            echo ""
+            git log "$RANGE" --no-merges --pretty=format:'- %s' | grep -v '^- chore: 发布 v' || echo "- 常规更新"
+            echo ""
+            if [ -n "$PREV" ]; then
+              echo ""
+              echo "完整对比：${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/compare/${PREV}...${GITHUB_REF_NAME}"
+            fi
+          } > notes.md
+          cat notes.md
 
       - name: 打包版本 zip（仅仓库文件，不含 node_modules）
         run: |
@@ -23,4 +42,4 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: app-tags-*.zip
-          generate_release_notes: true
+          body_path: notes.md
