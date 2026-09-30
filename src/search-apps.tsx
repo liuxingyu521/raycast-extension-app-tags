@@ -14,20 +14,31 @@ import {
 import { usePromise } from "@raycast/utils";
 import { appId, readTagMap } from "./lib/tags";
 import { colorForTag } from "./lib/colors";
+import { getRunningApps } from "./lib/running";
 import { AddTagForm, EditTags } from "./edit-tags";
 
 interface AppEntry {
   app: Application;
   id: string;
   tags: string[];
+  running: boolean;
 }
 
 async function loadEntries(): Promise<AppEntry[]> {
-  const [apps, tagMap] = await Promise.all([getApplications(), readTagMap()]);
+  const [apps, tagMap, runningApps] = await Promise.all([
+    getApplications(),
+    readTagMap(),
+    getRunningApps(),
+  ]);
   return apps
     .map((app) => {
       const id = appId(app);
-      return { app, id, tags: tagMap[id] ?? [] };
+      const running =
+        (app.bundleId !== undefined &&
+          runningApps.bundleIds.has(app.bundleId)) ||
+        runningApps.paths.has(app.path) ||
+        runningApps.names.has(app.name);
+      return { app, id, tags: tagMap[id] ?? [], running };
     })
     .sort((a, b) => a.app.name.localeCompare(b.app.name));
 }
@@ -123,11 +134,12 @@ function AppItem({
   entry: AppEntry;
   revalidate: () => void;
 }) {
-  const { app, tags } = entry;
+  const { app, tags, running } = entry;
   return (
     <List.Item
       icon={{ fileIcon: app.path }}
       title={app.name}
+      subtitle={running ? "已打开" : undefined}
       accessories={tags.map((tag) => ({
         tag: { value: tag, color: colorForTag(tag) },
       }))}
